@@ -9825,9 +9825,12 @@ class TestMPS(TestCaseMPS):
 
     @parametrize("dtype", [torch.float16, torch.bfloat16, torch.float32])
     def test_exponential_nonzero(self, dtype):
-        for _ in range(100):
-            a = torch.empty(32_000, device="mps", dtype=dtype).exponential_()
-            self.assertTrue((a != 0).all())
+        # -0.0 occurred at ~3e-8 per element (#192577), so 4e8 samples are
+        # needed; each call advances the Philox offset. `~(a > 0)` also
+        # catches NaN, which `!= 0` does not.
+        for _ in range(20):
+            a = torch.empty(20_000_000, device="mps", dtype=dtype).exponential_()
+            self.assertEqual((~(a > 0)).sum().item(), 0)
 
     @parametrize("dtype", [torch.float32])
     def test_poisson(self, dtype):
